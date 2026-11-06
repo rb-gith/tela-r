@@ -217,6 +217,7 @@ function render() {
     if (f) ui.filtersX = f.scrollLeft;
   }
   if (!sameRoute && viewer.open) viewer.close();
+  if (!sameRoute && cropper.open) cropper.close();
 
   const { name, arg } = currentRoute();
   const piece = arg && pieceById(arg);
@@ -455,14 +456,18 @@ function formHtml(p) {
   const statusChoices = STATUSES.map(s => `<label class="choice"><input type="radio" name="status" value="${s}" ${s === status ? 'checked' : ''}><span class="pill">${tr('status_' + s)}</span></label>`).join('');
   const unitChoices = UNITS.map(u => `<label class="choice"><input type="radio" name="unit" value="${u}" ${u === unit ? 'checked' : ''}><span class="pill">${u}</span></label>`).join('');
   const photo = isNew
-    ? `<button type="button" class="photo-pick" data-act="pick-photo" id="photo-pick">${tr('photo')}</button><p class="photo-note" id="photo-note" data-act="pick-photo" hidden>${tr('changePhoto')}</p>`
-    : `<button type="button" class="photo-pick has-photo" data-act="pick-photo" id="photo-pick"><img src="${thumbUrls.get(p.id) || ''}" alt=""></button><p class="photo-note" id="photo-note" data-act="pick-photo">${tr('changePhoto')}</p>`;
+    ? `<button type="button" class="photo-pick" data-act="pick-photo" id="photo-pick">${tr('photo')}</button>`
+    : `<button type="button" class="photo-pick has-photo" data-act="pick-photo" id="photo-pick"><img src="${thumbUrls.get(p.id) || ''}" alt=""></button>`;
+  const photoLinks = `<div class="photo-links" id="photo-links" ${isNew ? 'hidden' : ''}>
+    <button type="button" class="link-btn" data-act="pick-photo">${tr('changePhoto')}</button>
+    <button type="button" class="link-btn" data-act="crop-photo">${tr('cropPhoto')}</button>
+  </div>`;
   return `<div class="view"><form id="piece-form" data-id="${isNew ? '' : esc(p.id)}">
     <header class="topbar">
       <button type="button" class="icon-btn" data-act="back" aria-label="${tr('back')}">‹</button>
       <h1>${tr(isNew ? 'newPiece' : 'editPiece')}</h1>
     </header>
-    ${photo}
+    ${photo}${photoLinks}
     <label class="field"><span>${tr('title')}</span>
       <input type="text" name="title" value="${v('title')}" maxlength="200" required pattern=".*\\S.*" title="${tr('titleError')}" autocomplete="off"></label>
     <label class="field"><span>${tr('technique')}</span>
@@ -489,22 +494,31 @@ function formHtml(p) {
   </form></div>`;
 }
 
+function showDraft(draft) {
+  ui.draft = draft;
+  const shown = $('#photo-pick');
+  if (!shown) return;
+  const url = URL.createObjectURL(draft.thumb);
+  shown.classList.add('has-photo');
+  shown.innerHTML = `<img src="${url}" alt="">`;
+  shown.querySelector('img').addEventListener('load', () => URL.revokeObjectURL(url), { once: true });
+  $('#photo-links').hidden = false;
+}
+/* A new photo opens straight in the crop screen, working from the original for the best quality */
 async function choosePhoto(file) {
-  const pick = $('#photo-pick');
-  if (!file || !pick) return;
+  if (!file || !$('#photo-pick')) return;
   toast(tr('preparingPhoto'));
   try {
-    const draft = await processPhoto(file);
-    ui.draft = draft;
-    const url = URL.createObjectURL(draft.thumb);
-    const shown = $('#photo-pick');
-    if (shown) {
-      shown.classList.add('has-photo');
-      shown.innerHTML = `<img src="${url}" alt="">`;
-      shown.querySelector('img').addEventListener('load', () => URL.revokeObjectURL(url), { once: true });
-      $('#photo-note').hidden = false;
-    }
+    await openCropper(file, showDraft, false);
     hideToast();
+  } catch (e) {
+    toast(tr('photoFailed'));
+  }
+}
+async function cropCurrentPhoto(piece) {
+  try {
+    const source = ui.draft ? ui.draft.full : await request('full', 'get', piece.id);
+    await openCropper(source, showDraft, true);
   } catch (e) {
     toast(tr('photoFailed'));
   }
@@ -831,6 +845,155 @@ viewer.addEventListener('pointerup', endPoint);
 viewer.addEventListener('pointercancel', endPoint);
 viewer.addEventListener('close', () => { viewer.innerHTML = ''; });
 
+/* ---------- Crop and rotate ---------- */
+const cropper = $('#cropper');
+const MIN_CROP = 48, CROP_MARGIN = 26;
+/* The crop box is stored as fractions of the turned picture, so it survives rotating and resizing */
+const crop = { img: null, url: null, turns: 0, x: 0, y: 0, w: 1, h: 1, frameW: 1, frameH: 1, drag: null, saved: false, onDone: null };
+
+const turnedSize = () => crop.turns % 2
+  ? { W: crop.img.naturalHeight, H: crop.img.naturalWidth }
+  : { W: crop.img.naturalWidth, H: crop.img.naturalHeight };
+function drawTurned(x) {
+  const { W, H } = turnedSize();
+  x.save();
+  x.translate(W / 2, H / 2);
+  x.rotate(crop.turns * Math.PI / 2);
+  x.imageSmoothingQuality = 'high';
+  x.drawImage(crop.img, -crop.img.naturalWidth / 2, -crop.img.naturalHeight / 2);
+  x.restore();
+}
+function showCropBox() {
+  const box = {
+    left: crop.x * crop.frameW + 'px', top: crop.y * crop.frameH + 'px',
+    width: crop.w * crop.frameW + 'px', height: crop.h * crop.frameH + 'px',
+  };
+  Object.assign($('#crop-box').style, box);
+  Object.assign($('#crop-hole').style, box);
+}
+function layoutCropper() {
+  const stage = $('#crop-stage'), frame = $('#crop-frame'), canvas = $('#crop-canvas');
+  const { W, H } = turnedSize();
+  const scale = Math.min((stage.clientWidth - CROP_MARGIN * 2) / W, (stage.clientHeight - CROP_MARGIN * 2) / H);
+  crop.frameW = Math.max(1, Math.round(W * scale));
+  crop.frameH = Math.max(1, Math.round(H * scale));
+  frame.style.width = crop.frameW + 'px';
+  frame.style.height = crop.frameH + 'px';
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  canvas.width = crop.frameW * dpr;
+  canvas.height = crop.frameH * dpr;
+  const x = canvas.getContext('2d');
+  x.scale(canvas.width / W, canvas.height / H);
+  drawTurned(x);
+  showCropBox();
+}
+async function openCropper(blob, onDone, saved) {
+  const { img, url } = await loadImage(blob);
+  Object.assign(crop, { img, url, turns: 0, x: 0, y: 0, w: 1, h: 1, drag: null, saved, onDone });
+  const handles = ['nw', 'ne', 'sw', 'se'].map(c => `<div class="crop-handle ${c}" data-corner="${c}"></div>`).join('');
+  cropper.innerHTML = `<div class="crop-stage" id="crop-stage"><div class="crop-frame" id="crop-frame">
+      <canvas id="crop-canvas"></canvas>
+      <div class="crop-shade"><div class="crop-hole" id="crop-hole"></div></div>
+      <div class="crop-box" id="crop-box">${handles}</div>
+    </div></div>
+    <div class="crop-bar">
+      <button type="button" class="btn" data-act="crop-cancel">${tr('cancel')}</button>
+      <button type="button" class="btn" data-act="crop-rotate">${tr('rotate')}</button>
+      <button type="button" class="btn primary grow" data-act="crop-done">${tr('cropDone')}</button>
+    </div>`;
+  cropper.showModal();
+  layoutCropper();
+}
+/* Turning clockwise: what was on the left is now on top */
+function rotateCrop() {
+  const { x, y, w, h } = crop;
+  Object.assign(crop, { turns: (crop.turns + 1) % 4, x: 1 - (y + h), y: x, w: h, h: w });
+  layoutCropper();
+}
+function canvasBlob(c, quality) {
+  return new Promise((resolve, reject) => c.toBlob(b => b ? resolve(b) : reject(new Error('crop failed')), 'image/jpeg', quality));
+}
+async function finishCrop(button) {
+  const untouched = !crop.turns && crop.x === 0 && crop.y === 0 && crop.w === 1 && crop.h === 1;
+  if (crop.saved && untouched) { cropper.close(); return; }
+  button.disabled = true;
+  const { W, H } = turnedSize();
+  const left = Math.round(crop.x * W), top = Math.round(crop.y * H);
+  const width = Math.max(1, Math.min(W - left, Math.round(crop.w * W))), height = Math.max(1, Math.min(H - top, Math.round(crop.h * H)));
+  const scale = Math.min(1, FULL_SIDE / Math.max(width, height));
+  const out = document.createElement('canvas');
+  out.width = Math.max(1, Math.round(width * scale));
+  out.height = Math.max(1, Math.round(height * scale));
+  const x = out.getContext('2d');
+  x.fillStyle = '#fff';
+  x.fillRect(0, 0, out.width, out.height);
+  x.scale(out.width / width, out.height / height);
+  x.translate(-left, -top);
+  drawTurned(x);
+
+  const thumbScale = Math.min(1, THUMB_SIDE / Math.max(out.width, out.height));
+  const small = document.createElement('canvas');
+  small.width = Math.max(1, Math.round(out.width * thumbScale));
+  small.height = Math.max(1, Math.round(out.height * thumbScale));
+  const sx = small.getContext('2d');
+  sx.imageSmoothingQuality = 'high';
+  sx.drawImage(out, 0, 0, small.width, small.height);
+  try {
+    const draft = { full: await canvasBlob(out, FULL_QUALITY), thumb: await canvasBlob(small, THUMB_QUALITY), w: out.width, h: out.height };
+    const done = crop.onDone;
+    cropper.close();
+    done(draft);
+  } catch (e) {
+    cropper.close();
+    toast(tr('photoFailed'));
+  }
+}
+cropper.addEventListener('close', () => {
+  if (crop.url) URL.revokeObjectURL(crop.url);
+  crop.url = null;
+  crop.img = null;
+  cropper.innerHTML = '';
+});
+cropper.addEventListener('pointerdown', e => {
+  if (e.target.closest('.crop-bar')) return;
+  const corner = e.target.dataset.corner;
+  if (!corner && !e.target.closest('#crop-box')) return;
+  e.preventDefault();
+  cropper.setPointerCapture(e.pointerId);
+  crop.drag = { id: e.pointerId, corner, startX: e.clientX, startY: e.clientY, x: crop.x, y: crop.y, w: crop.w, h: crop.h };
+});
+cropper.addEventListener('pointermove', e => {
+  const d = crop.drag;
+  if (!d || d.id !== e.pointerId) return;
+  const dx = (e.clientX - d.startX) / crop.frameW, dy = (e.clientY - d.startY) / crop.frameH;
+  const minW = Math.min(1, MIN_CROP / crop.frameW), minH = Math.min(1, MIN_CROP / crop.frameH);
+  const within = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+  if (!d.corner) {
+    crop.x = within(d.x + dx, 0, 1 - d.w);
+    crop.y = within(d.y + dy, 0, 1 - d.h);
+  } else {
+    if (d.corner.includes('w')) {
+      crop.x = within(d.x + dx, 0, d.x + d.w - minW);
+      crop.w = d.x + d.w - crop.x;
+    } else {
+      crop.w = within(d.w + dx, minW, 1 - d.x);
+    }
+    if (d.corner.includes('n')) {
+      crop.y = within(d.y + dy, 0, d.y + d.h - minH);
+      crop.h = d.y + d.h - crop.y;
+    } else {
+      crop.h = within(d.h + dy, minH, 1 - d.y);
+    }
+  }
+  showCropBox();
+});
+function endCropDrag(e) {
+  if (crop.drag && crop.drag.id === e.pointerId) crop.drag = null;
+}
+cropper.addEventListener('pointerup', endCropDrag);
+cropper.addEventListener('pointercancel', endCropDrag);
+addEventListener('resize', () => { if (cropper.open && crop.img) layoutCropper(); });
+
 /* ---------- Toast ---------- */
 let toastTimer;
 function toast(msg) {
@@ -866,6 +1029,10 @@ document.addEventListener('click', async e => {
     case 'edit': go('edit/' + encodeURIComponent(piece.id)); break;
     case 'delete': deletePiece(piece); break;
     case 'pick-photo': photoInput.click(); break;
+    case 'crop-photo': cropCurrentPhoto(piece); break;
+    case 'crop-rotate': rotateCrop(); break;
+    case 'crop-cancel': cropper.close(); break;
+    case 'crop-done': finishCrop(b); break;
     case 'status-filter': {
       const next = b.dataset.status || null;
       ui.status = ui.status === next ? null : next;

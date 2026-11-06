@@ -1,5 +1,5 @@
 // Bump VERSION whenever any app file changes, so phones download the new version.
-const VERSION = 'v3';
+const VERSION = 'v4';
 const CACHE = 'tela-' + VERSION;
 const ASSETS = [
   './',

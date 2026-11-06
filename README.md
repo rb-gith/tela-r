@@ -15,7 +15,8 @@ This is the gionzana version. *Tela* is Italian for "canvas".
 
 ## How to use
 
-- **Add a piece:** tap **+ add a piece**, take or choose a photo, and give it a title.
+- **Add a piece:** tap **+ add a piece**, choose a photo from your phone, crop or rotate it if you like, and give it a title.
+- **Crop or rotate later:** tap **edit** on a piece, then **crop or rotate**. Drag the orange corners to resize the box, or drag inside it to move it. A crop replaces the saved picture, so to undo it later, add the photo again from your phone.
 - **Find a piece:** search by title, technique or series, or tap a status. Accents don't matter.
 - **See it large:** tap the picture on a piece's page. Pinch or double-tap to zoom.
 - **Change or delete a piece:** tap **edit** on its page.
