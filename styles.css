@@ -1,0 +1,142 @@
+/* Tela is always light, so the colors around the art never change. Colors come from the gionzana logo. */
+:root {
+  color-scheme: light only;
+  --page: #F7F2EA;
+  --purple: #2E1A47;
+  --orange: #F2994A;
+  --ink: #141414;
+  --muted: #6C6C6A;
+  --line: #DDD6C9;
+  --field: #FFFDF9;
+  --danger: #A32D2D;
+  --serif: Georgia, 'Noto Serif', 'Times New Roman', serif;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { background: var(--page); }
+body { margin: 0; background: var(--page); color: var(--ink); font: 16px/1.45 var(--serif); }
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+h1, h2, h3, p { margin: 0; }
+:focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; }
+[hidden] { display: none !important; }
+
+.view {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: calc(12px + env(safe-area-inset-top)) 16px calc(96px + env(safe-area-inset-bottom));
+}
+
+/* ---------- Top bar ---------- */
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 48px; margin-bottom: 10px; }
+.topbar h1 { flex: 1; min-width: 0; color: var(--purple); font-size: 24px; font-weight: 400; letter-spacing: 0.01em; }
+.logo { display: block; height: 30px; width: auto; }
+.icon-btn { width: 44px; height: 44px; display: grid; place-items: center; flex: none; padding: 0; border: 0; border-radius: 10px; background: transparent; color: var(--purple); font-size: 28px; line-height: 1; }
+.icon-btn svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
+.link-btn { min-height: 44px; padding: 0 6px; border: 0; background: transparent; color: var(--purple); font-size: 16px; text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---------- Search, filters, count ---------- */
+.field-search { width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--field); }
+.field-search::placeholder { color: var(--muted); opacity: 1; }
+.pills { display: flex; flex-wrap: wrap; gap: 7px; }
+.pill { display: inline-flex; align-items: center; min-height: 36px; padding: 5px 13px; border: 1px solid var(--purple); border-radius: 10px; background: transparent; color: var(--purple); font-size: 14px; white-space: nowrap; }
+button.pill[aria-pressed="true"], input:checked + .pill { background: var(--purple); color: var(--page); }
+.filters { flex-wrap: nowrap; margin: 10px -16px 6px; padding: 2px 16px; overflow-x: auto; scrollbar-width: none; }
+.filters::-webkit-scrollbar { display: none; }
+.filters .pill { flex: none; }
+.count { margin-bottom: 10px; color: var(--muted); font-size: 13px; }
+
+.choice { position: relative; display: inline-flex; }
+.choice input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+.choice input:focus-visible + .pill { outline: 2px solid var(--purple); outline-offset: 2px; }
+
+/* ---------- Gallery ---------- */
+.columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; align-items: start; }
+.column { display: grid; gap: 12px; }
+.card { display: block; width: 100%; padding: 0; border: 0; background: transparent; text-align: left; }
+.card img { display: block; width: 100%; height: auto; border-radius: 12px; background: var(--line); }
+.card span { display: block; margin-top: 5px; overflow: hidden; color: var(--ink); font-size: 13px; line-height: 1.3; white-space: nowrap; text-overflow: ellipsis; }
+.empty { padding: 56px 16px; text-align: center; }
+.empty h2 { margin-bottom: 6px; color: var(--purple); font-size: 22px; font-weight: 400; }
+.empty p, .none { color: var(--muted); font-size: 14px; }
+.none { padding: 24px 0; text-align: center; }
+
+.fab {
+  position: fixed;
+  right: max(16px, calc(50vw - 304px));
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  min-height: 50px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--orange);
+  color: var(--purple);
+  font-size: 16px;
+}
+
+.credit { margin-top: 32px; color: var(--muted); font-size: 13px; text-align: center; }
+.credit a { color: inherit; }
+.credit p + p { margin-top: 4px; }
+
+/* ---------- Piece page ---------- */
+.picture { display: block; width: 100%; padding: 0; border: 0; background: transparent; }
+.picture img { display: block; width: 100%; height: auto; border-radius: 14px; background: var(--line); }
+.piece-title { margin: 16px 0 3px; color: var(--purple); font-size: 27px; font-weight: 400; line-height: 1.15; overflow-wrap: anywhere; }
+.piece-meta { color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
+.piece-status { margin: 12px 0 2px; }
+.label { margin-top: 14px; color: var(--muted); font-size: 12px; }
+.value { white-space: pre-wrap; overflow-wrap: anywhere; }
+.btn { display: inline-flex; align-items: center; justify-content: center; min-height: 46px; padding: 8px 18px; border: 1px solid var(--purple); border-radius: 12px; background: transparent; color: var(--purple); font-size: 16px; }
+.btn.primary { border-color: var(--orange); background: var(--orange); }
+.btn.danger { border-color: var(--danger); color: var(--danger); }
+.btn.wide { width: 100%; }
+.btn.small { min-height: 36px; padding: 4px 13px; font-size: 14px; border-radius: 10px; }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.grow { flex: 1; }
+
+/* ---------- Form ---------- */
+.photo-pick { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 150px; padding: 0; border: 1px dashed var(--muted); border-radius: 12px; background: transparent; color: #444441; font-size: 15px; overflow: hidden; }
+.photo-pick.has-photo { border: 0; display: block; }
+.photo-pick img { display: block; width: 100%; height: auto; }
+.photo-note { margin-top: 6px; color: var(--purple); font-size: 14px; text-align: center; text-decoration: underline; text-underline-offset: 3px; }
+.field { display: block; margin-top: 12px; }
+.field > span, .field-label { display: block; margin-bottom: 4px; color: var(--muted); font-size: 13px; }
+.field input, .field textarea { display: block; width: 100%; min-height: 44px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--field); color: var(--ink); }
+.field textarea { resize: vertical; }
+.group { margin-top: 14px; }
+.size-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
+.size-row .field { margin-top: 0; width: 88px; }
+.size-row .times { padding-bottom: 10px; color: var(--muted); }
+.year-field { max-width: 110px; }
+
+/* ---------- Settings ---------- */
+.settings h3 { margin: 26px 0 8px; color: var(--purple); font-size: 18px; font-weight: 400; }
+.settings .note { margin-bottom: 10px; color: var(--muted); font-size: 14px; }
+.settings .btns { margin-top: 10px; }
+
+.notice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 10px 12px; margin-bottom: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--field); font-size: 14px; }
+.notice p { flex: 1 1 200px; }
+.notice div { display: flex; gap: 6px; }
+
+/* ---------- Full-screen picture ---------- */
+.viewer { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; padding: 0; border: 0; background: var(--page); overflow: hidden; touch-action: none; }
+.viewer::backdrop { background: var(--page); }
+.viewer img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transform-origin: center; user-select: none; -webkit-user-drag: none; }
+.viewer .icon-btn { position: absolute; top: calc(8px + env(safe-area-inset-top)); right: 8px; z-index: 1; border-radius: 50%; background: var(--page); }
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(82px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  padding: 9px 14px;
+  border-radius: 10px;
+  background: var(--purple);
+  color: var(--page);
+  font-size: 14px;
+  text-align: center;
+  z-index: 10;
+}

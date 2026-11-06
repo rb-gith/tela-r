@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light only">
+<meta name="theme-color" content="#F7F2EA">
+<meta name="description" content="A simple, private catalogue for artworks. Works offline.">
+<title>Tela</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app"></div>
+<input type="file" id="photo-input" accept="image/*" hidden>
+<div id="toast" class="toast" role="status" hidden></div>
+<dialog id="viewer" class="viewer"></dialog>
+
+<script src="brand.js"></script>
+<script src="lang.js"></script>
+<script src="zip.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
